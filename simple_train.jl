@@ -9,6 +9,7 @@ using CSV
 using DataFrames
 using Plots
 using BSON: @save
+using HDF5
 
 # Built off of Flux Model zoo MLP for MNIST
 # https://github.com/FluxML/model-zoo/blob/master/vision/mnist/mlp.jl
