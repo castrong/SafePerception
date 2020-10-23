@@ -49,8 +49,8 @@ function getdata(args)
     x_train[3, :] = x_train[3, :] ./ 2960 .- 0.4213     # Position down the runway
     x_val[3, :] = x_val[3, :] ./ 2960 .- 0.4213
 
-    print("Max after: ", maximum(x_train, dims=2))
-    print("Min after: ", minimum(x_train, dims=2))
+    println("Max after: ", maximum(x_train, dims=2))
+    println("Min after: ", minimum(x_train, dims=2))
     print("size x: ", size(x_train), size(x_val))
     print("size y: ", size(y_train), size(y_val))
 
@@ -62,11 +62,10 @@ function getdata(args)
 end
 
 function build_model(; layer_sizes, act)
-    println("Building model")
     # ReLU except last layer softmax
     layers = Any[Dense(layer_sizes[i], layer_sizes[i+1], act) for i = 1:length(layer_sizes) - 2]
     push!(layers, Dense(layer_sizes[end-1], layer_sizes[end]))
-    println("Layers: ", layers)
+    println("Model created with layers: ", layers)
     return Chain(layers...)
 end
 
@@ -81,17 +80,7 @@ function loss_all(dataloader, model, max_batch=Inf)
     l/i
 end
 
-function accuracy(data_loader, model, max_batch=Inf)
-    acc = 0
-    i = 0
-    for (x,y) in data_loader
-        acc += sum(onecold(cpu(model(x))) .== onecold(cpu(y)))*1 / size(x,2)
-        i = i + 1
-        i >= max_batch && break
-    end
-    acc/i
-end
-
+# Fcn called during training every __ seconds
 function eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, start_time, max_batch=Inf)
     # Compute the losses and accuracy
     new_train_loss = loss_all(train_data, m, max_batch)
@@ -102,7 +91,7 @@ function eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, 
     push!(val_loss, new_val_loss)
     push!(times, time() - start_time)
 
-    # Print new things
+    # Print updated losses
     println("Train loss: ", new_train_loss, " Validation loss: ", new_val_loss)
 end
 
@@ -127,7 +116,7 @@ function train(save_file; kws...)
     start_time = time()
 
     # Setup the evaluation function
-    evalcb = () -> eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, start_time, 200)
+    evalcb = () -> @time eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, start_time, 200)
 
     # Choose your optimizer and train
     opt = ADAM(args.η)
@@ -138,7 +127,7 @@ function train(save_file; kws...)
     println("Train loss: ", train_loss)
     println("Val loss: ", val_loss)
 
-    # Plot your accuracy and loss over time
+    # Plot your loss over time
     plot(times, train_loss, label="Train Loss", title=string(layer_sizes, " Loss over time"), xlabel="Time (s)", ylabel="CE Loss", legend=:topright)
     plot!(times, val_loss, label="Validation Loss")
     savefig(string("loss", layer_sizes, ".png"))
