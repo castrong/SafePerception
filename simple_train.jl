@@ -103,7 +103,7 @@ function eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, 
     push!(times, time() - start_time)
 
     # Print new things
-    println("Train loss: ", new_train_loss, " Validation loss: ", new_val_loss, " Train acc: ", new_train_acc, " Validation acc: ", new_val_acc)
+    println("Train loss: ", new_train_loss, " Validation loss: ", new_val_loss)
 end
 
 function train(save_file; kws...)
