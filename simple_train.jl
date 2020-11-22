@@ -1,6 +1,6 @@
 using Flux, Statistics
 using Flux.Data: DataLoader
-using Flux: onehotbatch, onecold, logitcrossentropy, logitbinarycrossentropy, throttle, @epochs, mse, mae
+using Flux: onehotbatch, throttle, @epochs, mse, mae
 using Base.Iterators: repeated
 using Parameters: @with_kw
 using CUDAapi
@@ -10,6 +10,7 @@ using DataFrames
 using Plots
 using BSON: @save
 using HDF5
+using PGFPlots
 
 # Built off of Flux Model zoo MLP for MNIST
 # https://github.com/FluxML/model-zoo/blob/master/vision/mnist/mlp.jl
@@ -31,7 +32,9 @@ function getdata(args)
     train_filename = "./Data/SK_DownsampledTrainingData.h5"
     val_filename = "./Data/SK_DownsampledValidationData.h5"
 
-    # Loading Dataset - it assumes each column is an observation
+    # Loading Dataset - the batch loader will
+    # assume each column is an observation so we'll need
+    # to make sure that's true
     x_train = h5read(train_filename, "X_train")
     y_train = h5read(train_filename, "y_train")
     x_val = h5read(val_filename, "X_val")
@@ -56,13 +59,13 @@ function getdata(args)
 
     # Batching
     train_data = DataLoader(x_train, y_train, batchsize=args.batchsize, shuffle=true)
-    validation_data = DataLoader(x_val, y_val, batchsize=args.batchsize, shuffle=false)
+    validation_data = DataLoader(x_val, y_val, batchsize=args.batchsize, shuffle=true)
 
     return train_data, validation_data
 end
 
 function build_model(; layer_sizes, act)
-    # ReLU except last layer softmax
+    # ReLU except last layer identity
     layers = Any[Dense(layer_sizes[i], layer_sizes[i+1], act) for i = 1:length(layer_sizes) - 2]
     push!(layers, Dense(layer_sizes[end-1], layer_sizes[end]))
     println("Model created with layers: ", layers)
@@ -73,7 +76,7 @@ function loss_all(dataloader, model, max_batch=Inf)
     l = 0f0
     i = 0
     for (x,y) in dataloader
-        l += logitcrossentropy(model(x), y)
+        l += mse(model(x), y)
         i = i + 1
         i >= max_batch && break
     end
@@ -95,7 +98,7 @@ function eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, 
     println("Train loss: ", new_train_loss, " Validation loss: ", new_val_loss)
 end
 
-function train(save_file; kws...)
+function train(layer_sizes, l_in, save_file; kws...)
     println("Starting train process")
     # Initializing Model parameters
     args = Args(; kws...)
@@ -104,9 +107,8 @@ function train(save_file; kws...)
     train_data, validation_data = getdata(args)
 
     # Construct model and loss
-    layer_sizes = (3, 32, 32, 64, 128)
     m = build_model(layer_sizes=layer_sizes, act=relu)
-    loss(x,y) = mse(m(x), y)
+    loss(x,y) = l_in(m(x), y)
 
     ## Training
     # lists to store progress
@@ -116,30 +118,34 @@ function train(save_file; kws...)
     start_time = time()
 
     # Setup the evaluation function
-    evalcb = () -> @time eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, start_time, 200)
+    evalcb = () -> eval_fcn!(m, train_data, validation_data, train_loss, val_loss, times, start_time, 100)
 
     # Choose your optimizer and train
     opt = ADAM(args.η)
     @epochs args.epochs Flux.train!(loss, params(m), train_data, opt, cb = throttle(evalcb, 20))
+
+    # Save the model
+    @save save_file m
 
     # Printout your evaluation metrics at each point in time
     println("Times: ", times)
     println("Train loss: ", train_loss)
     println("Val loss: ", val_loss)
 
-    # Plot your loss over time
-    plot(times, train_loss, label="Train Loss", title=string(layer_sizes, " Loss over time"), xlabel="Time (s)", ylabel="CE Loss", legend=:topright)
-    plot!(times, val_loss, label="Validation Loss")
-    savefig(string("loss", layer_sizes, ".png"))
-
     # Show the final loss on train and validation data
     @show loss_all(train_data, m)
     @show loss_all(validation_data, m)
 
-    # Save the model
-    @save save_file model
+    # Plot your loss over time
+    Plots.plot(times, train_loss, label="Train Loss", title=string(layer_sizes, " Loss over time"), xlabel="Time (s)", ylabel="CE Loss", legend=:topright, yaxis=:log)
+    Plots.plot!(times, val_loss, label="Validation Loss")
+    savefig(string("loss", layer_sizes, ".png"))
 end
 
+max_pixel_error(y_hat, y, agg=mean) = agg(maximum(y_hat .- y, dims=1))
+
 cd(@__DIR__)
-save_file = "./Models/first_model.bson"
-train(save_file)
+layer_sizes = (3, 32, 32, 64, 128)
+save_file = "./Models/max_pixel_error_"*string(layer_sizes)*".bson"
+loss = max_pixel_error
+train(layer_sizes, mae, save_file)
