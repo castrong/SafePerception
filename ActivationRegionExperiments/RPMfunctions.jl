@@ -3,8 +3,11 @@ using JuMP
 using GLPK
 using Distributions
 using LazySets
+using Distances
 
 include("nnet_functions.jl")
+
+hamming_ap(AP1, AP2) = sum([hamming(AP1[i], AP2[i]) for i = 1:length(AP1)])
 
 function inputPolytopeAroundPoint(nnet::NNet, x₀)
     # First, get modified weights that contain biases
@@ -82,6 +85,9 @@ function get_activation_pattern(x, W̃)
     # push!(AP, trues(length(W̃[end])))
     return AP
 end
+
+get_activation_pattern(nnet::NNet, x₀) = get_activation_pattern(x₀, get_mod_weights(nnet))
+
 
 # Return affine map Cx + d
 function affine_map(AP, W̃)
