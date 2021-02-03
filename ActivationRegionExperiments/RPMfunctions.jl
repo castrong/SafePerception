@@ -17,6 +17,19 @@ function inputPolytopeAroundPoint(nnet::NNet, x₀)
     return HPolytope(A, b)
 end
 
+function polytopeFromAP(nnet::NNet, AP)
+    W̃ = get_mod_weights(nnet)
+    A, b = get_constraints(AP, W̃)
+    return HPolytope(A, b)
+end
+
+function polytopeAndMapFromAP(nnet::NNet, AP)
+    W̃ = get_mod_weights(nnet)
+    A, b = get_constraints(AP, W̃)
+    C, d = affine_map(AP, W̃)
+    return HPolytope(A, b), C, d
+end
+
 function approxOptima(nnet::NNet, x₀, radius; num_samples = 100, find_max = true)
     # First, get modified weights that contain biases
     W̃ = get_mod_weights(nnet)

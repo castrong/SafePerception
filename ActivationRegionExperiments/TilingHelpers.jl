@@ -5,6 +5,19 @@ using Distributions
 using SCS
 using JuMP
 
+# An object which includes a region and its affine mapping
+@with_kw mutable struct AffinePolytopeRegion
+    domain::AbstractPolytope
+    A::Array{Float64, 2}
+    b::Array{Float64, 1}
+end
+
+@with_kw mutable struct AffineAndPoint
+    point::Array{Float64, 1}
+    A::Array{Float64, 2}
+    b::Array{Float64, 1}
+end
+
 function dist_to_set(point, set)
     A, b = tosimplehrep(set)
     dims = size(A, 2)
@@ -53,7 +66,7 @@ function polytope_center(polytope)
     return ellipsoid.center
 end
 polytope_centers(polytopes) = [polytope_center(polytope) for polytope in polytopes]
-
+polytope_centers(affine_polytope_regions::Vector{AffinePolytopeRegion}) = polytope_centers([region.domain for region in affine_polytope_regions])
 
 # (x2 - x1)' x ≤ 1/2 ||x2 - x1||^2
 function halfspace_between(point1, point2)

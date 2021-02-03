@@ -1,4 +1,5 @@
 # Functions from Kyle to interface with his neural net format
+using BSON: @load
 
 mutable struct NNet
     file::AbstractString
@@ -22,6 +23,16 @@ mutable struct NNet
     tauCut::Array{Float64,1}
     praCut::Array{Float64,1}
     networkArray::Bool
+end
+
+# Added by CAS - assumes your BSON file has an attribute m with the model
+function read_bson_network(file::AbstractString, input_mins, input_maxes, means, stdevs)
+    # Read in BSON
+    @load file m
+    # Save to a nnet
+    temp = tempname()
+    flux2nnet(temp, m, input_mins, input_maxes, means, stdevs) # it calls for means and ranges but this should be ok? check this
+    return read_network(temp)
 end
     
 function read_network(file::AbstractString)
@@ -334,6 +345,10 @@ end
 function num_outputs(nnet::NNet)
     return nnet.outputSize
 end
+
+# Added by CAS
+# NOTE: ASSUMES INPUTS ARE NORMALIZED!!!!!!!
+(nnet::NNet)(input) = return evaluate_network_faster(nnet, reshape(input, (length(input), 1)))
 
 """
 Functions added by SMK

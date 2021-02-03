@@ -8,6 +8,7 @@ using BSON: @save
 using Images, FileIO
 using Plots
 using TestImages
+using DelimitedFiles
 
 # Built off of Flux Model zoo MLP for MNIST
 # https://github.com/FluxML/model-zoo/blob/master/vision/mnist/mlp.jl
@@ -25,6 +26,7 @@ end
     device::Function = cpu  # set as gpu, if gpu available
 end
 
+# 2-d array to a dataset of inputs - row and column - and outputs - array value
 function arr_to_input_output(arr)
     # Each column will be a element of our data set
     num_elements = size(arr, 1) * size(arr, 2)
@@ -39,6 +41,22 @@ function arr_to_input_output(arr)
         end
     end
     return Float32.(inputs), Float32.(outputs)
+end
+function write_dataset(arr, X_file, Y_file, mean_file, stdev_file)
+    inputs, outputs = arr_to_input_output(arr)
+    write_dataset(inputs, outputs, X_file, Y_file, mean_file, stdev_file)
+end
+function write_dataset(X, Y, X_file, Y_file, mean_file, stdev_file)
+    # Write the inputs and outputs (each column corresponds to a data point)
+    # and the corresponding column in outputs is its label
+    writedlm(X_file, X, ',')
+    writedlm(Y_file, Y, ',')
+    
+    # Write the mean and stdev
+    means = mean(X, dims=2)
+    stdevs = std(X, dims=2)
+    writedlm(mean_file, means, ',')
+    writedlm(stdev_file, stdevs, ',')
 end
 
 function image_from_network(model, height, width, means, stdevs)
@@ -57,6 +75,7 @@ function getdata(image_file, args)
     println("Loading data")
     img = Float64.(Gray.(testimage("mandrill")))
     inputs, outputs = arr_to_input_output(img)
+    write_dataset(inputs, outputs, "./Data/test_image_X.csv", "./Data/test_image_Y.csv", "./Data/test_image_means.csv", "./Data/test_image_stdevs.csv")
     println("Means: ", mean(inputs, dims=2))
     println("stdev: ", std(inputs, dims=2))
     inputs = (inputs .- mean(inputs, dims=2)) ./ std(inputs, dims=2)
@@ -129,7 +148,7 @@ function train(image_file, layer_sizes; output_label = "", act=relu, kws...)
     # Choose your optimizer and train
     opt = ADAM(args.η)
     println("Starting training")
-    ps = params(m)
+    ps = Flux.params(m)
     @epochs args.epochs Flux.train!(loss, ps, train_data, opt, cb = throttle(evalcb, 20))
 
     # Printout your evaluation metrics at each point in time
@@ -148,7 +167,7 @@ function train(image_file, layer_sizes; output_label = "", act=relu, kws...)
 end
 
 image_file = "./ActivationRegionExperiments/Images/IMG_5904.JPG"
-layer_sizes = (2, 32, 64, 64, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024, 512, 512, 256, 256, 128, 128, 64, 64, 64, 64, 32, 1)
+layer_sizes = (2, 32, 64, 1)
 model = train(image_file, layer_sizes; output_label="initial_test", act=relu)
 
 img = Gray.(testimage("mandrill"))
