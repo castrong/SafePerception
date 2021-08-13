@@ -53,9 +53,15 @@ function network_to_affine_polytope_regions(network::NNet, X, num_regions, domai
     # Get the counts for each activation pattern
     counts = get_counts(network, X)
     ap_sorted, counts_sorted = sort_dict_by_value(counts)
+    println("length ap: ", length(ap_sorted))
+    println("num regions: ", num_regions)
+
+    # We'll only have as many as we found if it's below num_regions 
+    num_to_return = min(length(ap_sorted), num_regions)
+
     # Return the top num_regions 
-    regions = Array{AffinePolytopeRegion, 1}(undef, num_regions)
-    for i = 1:num_regions
+    regions = Array{AffinePolytopeRegion, 1}(undef, num_to_return)
+    for i = 1:num_to_return
         polytope, A, b = polytopeAndMapFromAP(network, ap_sorted[end-i+1])
         regions[i] = AffinePolytopeRegion(intersection(polytope, domain), A, b) # intersect the polytope with the domain here
     end
@@ -153,7 +159,7 @@ end
 #        the number of regions to plot and the domain 
 # Output: A plot saved to save_filename which includes num_regions most popular polytopes
 function visualize_regions(network, X, num_regions, domain
-                           ;regions = network_to_affine_polytope_regions(network, X_normalized, num_regions, domain),
+                           ;regions = network_to_affine_polytope_regions(network, X, num_regions, domain),
                            centers = polytope_centers(regions),
                            save_filename="./temp.png", plot_points=true, num_plot_points = 1000)
     cur_plot = plot(domain, aspect_ratio=:equal)
@@ -194,6 +200,8 @@ function popular_regions_gif(network, X, num_regions, domain
     println("Saving gif")
     write(save_filename, frames)
 end
+
+"""
 
 # Load in the data and the normalization 
 X = readdlm("./Data/test_image_X.csv", ',', Float64, '\n')
@@ -239,3 +247,5 @@ visualize_regions(network, X_normalized, num_regions, domain; regions=regions, c
 
 println("Original loss: ", original_loss)
 println("Compressed loss: ", compressed_loss)
+
+"""

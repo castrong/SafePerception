@@ -42,11 +42,15 @@ function read_network(file::AbstractString)
     # Begin reading .nnet file
     ###############
 
-    #Read header line
+    #Read header line(s)
     line = readline(f)
     networkArray = false
     if (line[1] == 'A') || (line[4] =='A')
         networkArray = true
+    end
+
+    while line[1:2] == "//"
+        line = readline(f)
     end
 
     numTau = -1
@@ -55,8 +59,7 @@ function read_network(file::AbstractString)
     praCut = [-1.0]
     if networkArray
         #Read number of neural networks
-        line = readline(f)
-        record = split(line,[',','\n'])
+        #line = readline(f)
         numNetworks = parse(Int32,record[1])
 
         #Read number of previous RA cutpoints
@@ -90,7 +93,7 @@ function read_network(file::AbstractString)
     end
 
     #Read information about the neural network
-    line = readline(f)
+    #line = readline(f)
     record = split(line,[',','\n'])
     numLayers = parse(Int32,record[1])
     inputSize = parse(Int32,record[2])
@@ -105,8 +108,10 @@ function read_network(file::AbstractString)
     end
 
     line = readline(f)
-    record = split(line,[',','\n'])
-    symmetric = parse(Float64,record[1])
+    # Outdated flag so ignore! 
+    symmetric = 0.0
+    # record = split(line,[',','\n'])
+    # symmetric = parse(Float64,record[1])
 
     line = readline(f)
     record = split(line,[',','\n'])

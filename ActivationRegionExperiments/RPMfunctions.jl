@@ -99,7 +99,9 @@ function get_activation_pattern(x, W̃)
     return AP
 end
 
-get_activation_pattern(nnet::NNet, x₀) = get_activation_pattern(x₀, get_mod_weights(nnet))
+get_activation_pattern(nnet::NNet, x₀) = begin
+    get_activation_pattern(x₀, get_mod_weights(nnet))
+end
 
 
 # Return affine map Cx + d
